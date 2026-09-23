@@ -293,6 +293,69 @@ setRow: {
   gap: 8,
 },
 
+completedSetRow: {
+  backgroundColor: "#F0FDF4",
+  borderRadius: 8,
+  paddingVertical: 4,
+},
+
+setCheckButton: {
+  width: 32,
+  height: 32,
+  borderRadius: 16,
+  borderWidth: 1,
+  borderColor: "#9CA3AF",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+setCheckButtonDone: {
+  backgroundColor: "#16A34A",
+  borderColor: "#16A34A",
+},
+
+setCheckText: {
+  fontSize: 18,
+  fontWeight: "bold",
+  color: "#6B7280",
+},
+
+workoutSessionCard: {
+  backgroundColor: "#FFFFFF",
+  padding: 18,
+  borderRadius: 14,
+  marginTop: 5,
+  marginBottom: 20,
+  elevation: 2,
+},
+
+finishWorkoutButton: {
+  backgroundColor: "#16A34A",
+  padding: 15,
+  borderRadius: 10,
+  alignItems: "center",
+},
+
+finishWorkoutButtonText: {
+  color: "#FFFFFF",
+  fontWeight: "bold",
+  fontSize: 16,
+},
+
+workoutCompletedTitle: {
+  color: "#15803D",
+  fontSize: 20,
+  fontWeight: "bold",
+  textAlign: "center",
+},
+
+workoutCompletedText: {
+  color: "#4B5563",
+  fontSize: 14,
+  textAlign: "center",
+  marginTop: 6,
+},
+
 setLabel: {
   width: 45,
   fontSize: 14,

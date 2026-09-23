@@ -20,9 +20,9 @@ const initialWorkouts = [
     name: "Push-ups",
     completed: false,
     sets: [
-      { weight: "0", reps: "12" },
-      { weight: "0", reps: "12" },
-      { weight: "0", reps: "12" },
+      { weight: "0", reps: "12", completed: false },
+      { weight: "0", reps: "12", completed: false },
+      { weight: "0", reps: "12", completed: false },
     ],
   },
   {
@@ -30,9 +30,9 @@ const initialWorkouts = [
     name: "Squats",
     completed: false,
     sets: [
-      { weight: "0", reps: "15" },
-      { weight: "0", reps: "15" },
-      { weight: "0", reps: "15" },
+      { weight: "0", reps: "15", completed: false },
+      { weight: "0", reps: "15", completed: false },
+      { weight: "0", reps: "15", completed: false },
     ],
   },
   {
@@ -40,9 +40,9 @@ const initialWorkouts = [
     name: "Dumbbell Press",
     completed: false,
     sets: [
-      { weight: "10", reps: "10" },
-      { weight: "10", reps: "10" },
-      { weight: "10", reps: "10" },
+      { weight: "10", reps: "10", completed: false },
+      { weight: "10", reps: "10", completed: false },
+      { weight: "10", reps: "10", completed: false },
     ],
   },
 ];
@@ -109,9 +109,9 @@ const [newExerciseSets, setNewExerciseSets] = useState("3");
 const [showExerciseLibrary, setShowExerciseLibrary] = useState(false);
 const [selectedExercise, setSelectedExercise] = useState(null);
 const [librarySets, setLibrarySets] = useState([
-  { weight: "0", reps: "0" },
-  { weight: "0", reps: "0" },
-  { weight: "0", reps: "0" },
+  { weight: "0", reps: "0", completed: false },
+  { weight: "0", reps: "0", completed: false },
+  { weight: "0", reps: "0", completed: false },
 ]);
 const [librarySetCount, setLibrarySetCount] = useState("3");
 const [exerciseSearch, setExerciseSearch] = useState("");
@@ -129,6 +129,7 @@ const [exerciseSearch, setExerciseSearch] = useState("");
 
   const [workouts, setWorkouts] = useState(initialWorkouts);
   const [workoutHistory, setWorkoutHistory] = useState({});
+  const [workoutSessionCompleted, setWorkoutSessionCompleted] = useState(false);
 
 useEffect(() => {
   const loadUser = async () => {
@@ -152,13 +153,12 @@ const getTodayKey = () => {
 useEffect(() => {
   const loadWorkoutData = async () => {
     try {
-      const savedData = await AsyncStorage.getItem(
-        "fittrack_workouts"
-      );
+      const savedData = await AsyncStorage.getItem("fittrack_workouts");
 
       if (savedData) {
         const parsedData = JSON.parse(savedData);
         const history = parsedData.history || {};
+        const sessions = parsedData.sessions || {};
 
         setWorkoutHistory(history);
 
@@ -167,6 +167,8 @@ useEffect(() => {
         if (history[todayKey]) {
           setWorkouts(history[todayKey]);
         }
+
+        setWorkoutSessionCompleted(Boolean(sessions[todayKey]));
       }
     } catch (error) {
       console.log("Error loading workout data:", error);
@@ -180,18 +182,25 @@ useEffect(() => {
   const saveWorkoutData = async () => {
     try {
       const todayKey = getTodayKey();
+      const savedData = await AsyncStorage.getItem("fittrack_workouts");
+      const parsedData = savedData ? JSON.parse(savedData) : {};
+      const history = parsedData.history || {};
+      const sessions = parsedData.sessions || {};
 
-      const updatedHistory = {
-        ...workoutHistory,
-        [todayKey]: workouts,
-      };
+      history[todayKey] = workouts;
+
+      if (workoutSessionCompleted) {
+        sessions[todayKey] = true;
+      } else {
+        delete sessions[todayKey];
+      }
 
       await AsyncStorage.setItem(
         "fittrack_workouts",
-        JSON.stringify({
-          history: updatedHistory,
-        })
+        JSON.stringify({ history, sessions })
       );
+
+      setWorkoutHistory(history);
     } catch (error) {
       console.log("Error saving workout data:", error);
     }
@@ -200,7 +209,7 @@ useEffect(() => {
   if (workouts.length > 0) {
     saveWorkoutData();
   }
-}, [workouts]);
+}, [workouts, workoutSessionCompleted]);
 const addLibraryExercise = (exercise, customSets = librarySets) => {
   const newExercise = {
     id: Date.now(),
@@ -215,6 +224,7 @@ const addLibraryExercise = (exercise, customSets = librarySets) => {
     ...currentWorkouts,
     newExercise,
   ]);
+  setWorkoutSessionCompleted(false);
 
   setSelectedExercise(null);
   setShowExerciseLibrary(false);
@@ -244,6 +254,7 @@ const addNewExercise = () => {
     sets: Array.from({ length: numberOfSets }, () => ({
       weight: "0",
       reps: "0",
+      completed: false,
     })),
   };
 
@@ -251,6 +262,8 @@ const addNewExercise = () => {
     ...currentWorkouts,
     newExercise,
   ]);
+
+  setWorkoutSessionCompleted(false);
 
   setNewExerciseName("");
   setNewExerciseSets("3");
@@ -287,51 +300,109 @@ const addNewExercise = () => {
     setUser({ ...user, [field]: value });
   };
   const updateSet = (workoutId, setIndex, field, value) => {
-  setWorkouts((currentWorkouts) =>
-    currentWorkouts.map((workout) => {
-      if (workout.id !== workoutId) {
-        return workout;
-      }
+    setWorkouts((currentWorkouts) =>
+      currentWorkouts.map((workout) => {
+        if (workout.id !== workoutId) return workout;
 
-      const updatedSets = workout.sets.map((set, index) =>
-        index === setIndex ? { ...set, [field]: value } : set
+        const updatedSets = workout.sets.map((set, index) =>
+          index === setIndex ? { ...set, [field]: value } : set
+        );
+
+        return { ...workout, sets: updatedSets };
+      })
+    );
+    setWorkoutSessionCompleted(false);
+  };
+
+  const toggleSetComplete = (workoutId, setIndex) => {
+    setWorkouts((currentWorkouts) =>
+      currentWorkouts.map((workout) => {
+        if (workout.id !== workoutId) return workout;
+
+        const updatedSets = workout.sets.map((set, index) =>
+          index === setIndex
+            ? { ...set, completed: !Boolean(set.completed) }
+            : set
+        );
+
+        const allSetsCompleted =
+          updatedSets.length > 0 && updatedSets.every((set) => Boolean(set.completed));
+
+        return {
+          ...workout,
+          sets: updatedSets,
+          completed: allSetsCompleted,
+        };
+      })
+    );
+    setWorkoutSessionCompleted(false);
+  };
+
+  const addSet = (workoutId) => {
+    setWorkouts((currentWorkouts) =>
+      currentWorkouts.map((workout) => {
+        if (workout.id !== workoutId) return workout;
+
+        return {
+          ...workout,
+          completed: false,
+          sets: [
+            ...workout.sets,
+            { weight: "0", reps: "0", completed: false },
+          ],
+        };
+      })
+    );
+    setWorkoutSessionCompleted(false);
+  };
+
+  const toggleWorkoutComplete = (workoutId) => {
+    setWorkouts((currentWorkouts) =>
+      currentWorkouts.map((workout) => {
+        if (workout.id !== workoutId) return workout;
+
+        const newCompleted = !workout.completed;
+        return {
+          ...workout,
+          completed: newCompleted,
+          sets: workout.sets.map((set) => ({
+            ...set,
+            completed: newCompleted ? true : false,
+          })),
+        };
+      })
+    );
+    setWorkoutSessionCompleted(false);
+  };
+
+  const finishWorkoutSession = () => {
+    if (workouts.length === 0) {
+      Alert.alert("No Exercises", "Add at least one exercise before finishing your workout.");
+      return;
+    }
+
+    const allExercisesCompleted = workouts.every((workout) => workout.completed);
+
+    if (!allExercisesCompleted) {
+      Alert.alert(
+        "Workout Not Complete",
+        "Complete all exercises before finishing today's workout."
       );
+      return;
+    }
 
-      return {
-        ...workout,
-        sets: updatedSets,
-      };
-    })
-  );
-};
-
-const addSet = (workoutId) => {
-  setWorkouts((currentWorkouts) =>
-    currentWorkouts.map((workout) => {
-      if (workout.id !== workoutId) {
-        return workout;
-      }
-
-      return {
-        ...workout,
-        sets: [
-          ...workout.sets,
-          { weight: "0", reps: "0" },
-        ],
-      };
-    })
-  );
-};
-
-const toggleWorkoutComplete = (workoutId) => {
-  setWorkouts((currentWorkouts) =>
-    currentWorkouts.map((workout) =>
-      workout.id === workoutId
-        ? { ...workout, completed: !workout.completed }
-        : workout
-    )
-  );
-};
+    Alert.alert(
+      "Finish Workout",
+      "Great work! Do you want to finish today's workout?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Finish",
+          onPress: () => setWorkoutSessionCompleted(true),
+        },
+      ]
+    );
+  };
 
 const removeExercise = (workoutId) => {
   const workout = workouts.find((item) => item.id === workoutId);
@@ -349,6 +420,7 @@ const removeExercise = (workoutId) => {
           setWorkouts((currentWorkouts) =>
             currentWorkouts.filter((item) => item.id !== workoutId)
           );
+          setWorkoutSessionCompleted(false);
         },
       },
     ]
@@ -626,10 +698,26 @@ const removeExercise = (workoutId) => {
           <Text style={styles.setHeading}>Set details</Text>
 
           {workout.sets.map((set, index) => (
-            <View style={styles.setRow} key={index}>
-              <Text style={styles.setLabel}>
-                Set {index + 1}
-              </Text>
+            <View
+              style={[
+                styles.setRow,
+                set.completed && styles.completedSetRow,
+              ]}
+              key={index}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.setCheckButton,
+                  set.completed && styles.setCheckButtonDone,
+                ]}
+                onPress={() => toggleSetComplete(workout.id, index)}
+              >
+                <Text style={styles.setCheckText}>
+                  {set.completed ? "✓" : "○"}
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.setLabel}>Set {index + 1}</Text>
 
               <TextInput
                 style={styles.setInput}
@@ -637,12 +725,7 @@ const removeExercise = (workoutId) => {
                 keyboardType="numeric"
                 value={set.weight}
                 onChangeText={(value) =>
-                  updateSet(
-                    workout.id,
-                    index,
-                    "weight",
-                    value
-                  )
+                  updateSet(workout.id, index, "weight", value)
                 }
               />
 
@@ -652,12 +735,7 @@ const removeExercise = (workoutId) => {
                 keyboardType="numeric"
                 value={set.reps}
                 onChangeText={(value) =>
-                  updateSet(
-                    workout.id,
-                    index,
-                    "reps",
-                    value
-                  )
+                  updateSet(workout.id, index, "reps", value)
                 }
               />
             </View>
@@ -692,6 +770,28 @@ const removeExercise = (workoutId) => {
           </TouchableOpacity>
         </View>
       ))}
+
+      {workouts.length > 0 && (
+        <View style={styles.workoutSessionCard}>
+          {workoutSessionCompleted ? (
+            <>
+              <Text style={styles.workoutCompletedTitle}>🎉 Workout Completed!</Text>
+              <Text style={styles.workoutCompletedText}>
+                Today's workout has been saved to your history.
+              </Text>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={styles.finishWorkoutButton}
+              onPress={finishWorkoutSession}
+            >
+              <Text style={styles.finishWorkoutButtonText}>
+                ✓ Finish Today's Workout
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 };
@@ -789,9 +889,9 @@ const renderExerciseLibrary = () => {
             setSelectedExercise(exercise);
             setLibrarySetCount("3");
             setLibrarySets([
-              { weight: "0", reps: "0" },
-              { weight: "0", reps: "0" },
-              { weight: "0", reps: "0" },
+              { weight: "0", reps: "0", completed: false },
+              { weight: "0", reps: "0", completed: false },
+              { weight: "0", reps: "0", completed: false },
             ]);
           }}
         >
