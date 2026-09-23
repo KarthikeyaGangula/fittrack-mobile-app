@@ -1,4 +1,4 @@
-# FitTrack - Final Local Testing Build
+# FitTrack - Final Local Test Build
 
 This is the complete local-first FitTrack baseline.
 
